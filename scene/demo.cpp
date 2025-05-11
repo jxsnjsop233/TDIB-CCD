@@ -1,6 +1,8 @@
 #include "scene_random.h"
 #include "scene_examples.h"
 #include "argsParser.h"
+#include "cuda/myEigen.cuh"
+
 inline std::unique_ptr<ArgsParser> BuildArgsParser()
 {
 	auto parser = std::make_unique<ArgsParser>();
@@ -10,10 +12,20 @@ inline std::unique_ptr<ArgsParser> BuildArgsParser()
 
 	parser->addArgument<double>("delta", 'd', "distance for convergence criterion", 1e-5);
 	parser->addArgument<int>("kase", 'k', "number of generated cases", 100);
+	parser->addArgument<int>("nvda", 'n', "use nvidia gpu mode", 0);
 	return parser;
 }
 
 int main(int argc, char *argv[]){
+	const int N = 5;
+	double a[5] = {1,2,3,4,5};
+	double b[5] = {0,5,10,15,20};
+	cpy(b, a, N);
+	std::cout << "Results:\n";
+    // for (int i = 0; i < N; ++i) {
+    //     std::cout << a[i] << " | " << a[i] << std::endl;
+    // }
+
 	auto parser = BuildArgsParser();
 	parser->parse(argc, argv);
 
@@ -22,6 +34,7 @@ int main(int argc, char *argv[]){
     const auto bbType = std::any_cast<std::string>(parser->getValueByName("bb"));
     const auto deltaDist = std::any_cast<double>(parser->getValueByName("delta"));
     const auto kase = std::any_cast<int>(parser->getValueByName("kase"));
+	const auto nvda = std::any_cast<int>(parser->getValueByName("nvda"));
 
 	BoundingBoxType bb;
 	if(bbType=="obb")
@@ -43,7 +56,8 @@ int main(int argc, char *argv[]){
 	}
 
 	if(expType=="rand")
-		randomTest<RecCubicBezier, RecParamBound>(solver, bb, deltaDist, kase);
+		if(nvda==0) randomTest<RecCubicBezier, RecParamBound>(solver, bb, deltaDist, kase);
+		else randomTestGPU(solver, bb, deltaDist, kase);
 	else if(expType=="single")
 		singleTest(solver, bb, deltaDist);
 	else if(expType=="bunny")

@@ -7,6 +7,8 @@
 #include "triRatBezier.h"
 #include "recBezier.h"
 #include "recRatBezier.h"
+#include "cuda/solverTrad.cuh"
+#include "cuda/solverTD.cuh"
 
 
 template<typename ObjType>
@@ -18,6 +20,26 @@ static void generatePatchPair(std::array<Vector3d, ObjType::cntCp> &CpPos1, std:
 		CpVel1[i] = Vector3d::Random() + dir * velMagnitude;
 		CpPos2[i] = Vector3d::Random() + dir;
 		CpVel2[i] = Vector3d::Random() - dir * velMagnitude;
+	}
+}
+
+static void generatePatchPairGPU(	vec3d* CpPos1, vec3d* CpVel1,
+									vec3d* CpPos2, vec3d* CpVel2, const double& velMagnitude = 1){
+	Vector3d dir0=Vector3d::Random().normalized();
+	vec3d dir(dir0.x(), dir0.y(), dir0.z());
+	for (int i = 0; i < CudaRecCubicBezier::cntCp; i++) {
+		Vector3d tmpV1 = Vector3d::Random();
+		vec3d tmpV2(tmpV1.x(), tmpV1.y(), tmpV1.z());
+		CpPos1[i] = tmpV2 - dir;
+		tmpV1 = Vector3d::Random();
+		tmpV2 = vec3d(tmpV1.x(), tmpV1.y(), tmpV1.z());
+		CpVel1[i] = tmpV2 + dir * velMagnitude;
+		tmpV1 = Vector3d::Random();
+		tmpV2 = vec3d(tmpV1.x(), tmpV1.y(), tmpV1.z());
+		CpPos2[i] = tmpV2 + dir;
+		tmpV1 = Vector3d::Random();
+		tmpV2 = vec3d(tmpV1.x(), tmpV1.y(), tmpV1.z());
+		CpVel2[i] = tmpV2 - dir * velMagnitude;
 	}
 }
 
@@ -51,6 +73,51 @@ void randomTest(const SolverType& solver, const BoundingBoxType & bb,
 	std::cout << "average seconds: " <<
 		duration(endTime - initialTime).count()/kase
 		<< std::endl;
+	std::cout << "total seconds: " << duration(endTime - initialTime).count() << std::endl;
+}
+
+void randomTestGPU(const SolverType& solver, const BoundingBoxType & bb,
+				const double& deltaDist, const int& kase){
+	int bbox;
+	if(bb==BoundingBoxType::AABB) bbox = 0;
+	else bbox = 1;
+
+	// CudaRecCubicBezier pos1[kase], pos2[kase], vel1[kase], vel2[kase];
+	// vec2d uv1[kase],uv2[kase];
+	std::vector<CudaRecCubicBezier> pos1(kase), pos2(kase), vel1(kase), vel2(kase);
+	std::vector<vec2d> uv1(kase), uv2(kase);
+	std::srand(0);
+	int hasCol = 0;
+	double t;
+	
+	using steady_clock = std::chrono::steady_clock;
+	using duration = std::chrono::duration<double>;
+	const auto initialTime = steady_clock::now();
+
+	for(int k = 0; k < kase; k ++){
+		generatePatchPairGPU(pos1[k].ctrlp, vel1[k].ctrlp, pos2[k].ctrlp, vel2[k].ctrlp);
+	}
+	if(solver==SolverType::TDIntv)
+		// t = solveCCD(pos1,vel1,pos2,vel2,uv1,uv2,bb,deltaDist);
+		cudaSolveCCD_TD(pos1.data(), vel1.data(), pos2.data(), vel2.data(),
+						uv1.data(), uv2.data(), bbox, kase, deltaDist);// t = SolverTD<CudaRecCubicBezier,CudaRecCubicBezier,CudaRecParamBound,CudaRecParamBound>::solveCCD(pos1,vel1,pos2,vel2,uv1,uv2,bb,deltaDist);
+	else if(solver==SolverType::TradIntv)
+		cudaSolveCCD(	pos1.data(), vel1.data(), pos2.data(), vel2.data(),
+                 		uv1.data(), uv2.data(), bbox, kase, deltaDist);
+		// t = cudaSolveCCD(pos1,vel1,pos2,vel2,uv1,uv2,bbox,kase,deltaDist);// t = SolverTrad<CudaRecCubicBezier,CudaRecCubicBezier,CudaRecParamBound,CudaRecParamBound>::solveCCD(pos1,vel1,pos2,vel2,uv1,uv2,bb,deltaDist);
+	else{
+		std::cerr<<"solver not implemented!\n";
+		exit(-1);
+	}
+	// if(t>=0)hasCol++;
+	// std::cout<<"case "<<kase<<" done.\n";
+
+	const auto endTime = steady_clock::now();
+	// std::cout << hasCol<<" pairs have collided.\n";
+	std::cout << "average seconds: " <<
+		duration(endTime - initialTime).count()/kase
+		<< std::endl;
+	std::cout << "total seconds: " << duration(endTime - initialTime).count() << std::endl;
 }
 
 void singleTest(const SolverType& solver, const BoundingBoxType & bb,

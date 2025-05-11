@@ -76,7 +76,7 @@ public:
 			heap.emplace(initParam1, initParam2, initTimeIntv);
 
 		while (!heap.empty()) {
-			auto const cur = heap.top();
+			PatchPair const cur = heap.top();
 			heap.pop();
 
 			// Meets the precision requirement
