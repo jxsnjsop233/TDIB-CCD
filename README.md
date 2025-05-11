@@ -1,3 +1,50 @@
+# Graduation Project
+
+*usage*
+
+1. Enter the directory of xmake.lua
+
+2. Run Command
+
+```
+xmake
+```
+
+3. Run the experiment
+
+```
+xmake run scene ...[args]
+```
+
+4. Example
+
+```
+xmake run scene -s td -e rand -b obb -d 1e-3 -k 1000 -n 1
+```
+
+### Run experiments
+```
+xmake run scene
+```
+Optional arguments:
+```
+-s    Type of CCD solver. Use "trad" for the traditional method, or "td" for our time-dependent method.
+-e    Type of experiment. Use "rand" for the random test, "single" for the single test, or "bunny" for the bunny-torus test.
+-b    Type of inclusions. Use "aabb" for AABB, or "obb" for OBB.
+-d    Precision requirement, i.e., maximum width of the parametric interval.
+-k    Number of generated cases. Only used in the "rand" experiment.
+-n    Usage of NVIDIA GPU to calculation (0/1). Only used in the "rand" experiment.
+```
+
+**The default setting is**
+```
+xmake run scene -s td -e rand -b obb -d 1e-5 -k 100 -n 0
+```
+
+# The following is the original content
+
+---
+
 # TDIB-CCD
 This is the official implementation of [A Time-Dependent Inclusion-Based Method for Continuous Collision Detection between Parametric Surfaces](https://xw-c.github.io/publication/siga24/) (accepted as SIGGRAPH Asia 2024 Journal Paper).
 
